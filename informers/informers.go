@@ -28,7 +28,43 @@ func SharedInformer(clientset *kubernetes.Clientset) {
 
 	// listerWatcher(clientset)
 	// reflector(clientset)
-	controller(clientset)
+	// controller(clientset)
+	sharedInformer(clientset)
+}
+
+func sharedInformer(clientset *kubernetes.Clientset) {
+	sharedInformer := cache.NewSharedInformer(
+		&cache.ListWatch{
+			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				return clientset.CoreV1().Pods("default").List(
+					context.Background(),
+					metav1.ListOptions{},
+				)
+			},
+			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				// Direct call to the API server, using the job client
+				return clientset.CoreV1().Pods("default").Watch(
+					context.Background(),
+					metav1.ListOptions{},
+				)
+			},
+		},
+		&v1.Pod{},
+		time.Second,
+	)
+	// adding event handler
+	sharedInformer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			DeleteFunc: func(obj interface{}) {
+				pod := obj.(*v1.Pod)
+				log.Println(pod.Name)
+			},
+		},
+	)
+
+	// to get store run
+	// sharedInformer.GetStore()
+	sharedInformer.Run(wait.NeverStop)
 }
 
 func controller(clientset *kubernetes.Clientset) {
@@ -130,3 +166,5 @@ func listerWatcher(clientset *kubernetes.Clientset) {
 // controllers
 // sample programs
 // dynamic informers
+
+// what is the interface in event handlers. is it same as the expected  type?
